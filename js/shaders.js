@@ -7,7 +7,8 @@ precision highp float;
 /////// output buffers ///////
 layout(location = 0) out vec4 position_output;
 layout(location = 1) out vec4 velocity_output;
-layout(location = 2) out vec4 rng_output;
+layout(location = 2) out vec4 material_output;
+layout(location = 3) out vec4 rng_output;
 
 vec3 mod289(vec3 x) {
   return x - floor(x * (1.0 / 289.0)) * 289.0;
@@ -98,6 +99,7 @@ void main()
 
     position_output = vec4(birth_position, birth_phase);
     velocity_output = vec4(0.0);
+    material_output = vec4(0.0);
 
     vec4 seed = vec4(hash(gl_FragCoord.x), hash(gl_FragCoord.y), hash(birth_phase), 1.0);
     rng_output = seed;
@@ -187,8 +189,9 @@ precision highp float;
 
 uniform sampler2D position_sampler; // 0, particle position
 uniform sampler2D velocity_sampler; // 1, particle velocity
-uniform sampler2D rng_sampler;      // 2, particle rng seeds
-// (User textures start at index 3)
+uniform sampler2D material_sampler; // 2, particle material
+uniform sampler2D rng_sampler;      // 3, particle rng seeds
+// (User textures start at index 4)
 
 uniform mat4 u_projectionMatrix;
 uniform mat4 u_modelViewMatrix;
@@ -228,6 +231,8 @@ void main()
     ivec2 frag = ivec2(row, col);
 
     vec4 P = texelFetch(position_sampler, frag, 0);
+    vec3 V = texelFetch(velocity_sampler, frag, 0).xyz;
+    vec4 M = texelFetch(material_sampler, frag, 0);
 
     vec3 position = P.xyz;
     float birth_phase = P.w; // in [0,1]
@@ -239,7 +244,7 @@ void main()
     float age = lifetime * dphase;
 
     // Compute particle color via user-specified function
-    pColor = COLOR(position, t, age, lifetime, id, N*N);
+    pColor = COLOR(position, V, M, t, age, lifetime, id, N*N);
 
     gl_Position = u_projectionMatrix * u_modelViewMatrix * vec4(position, 1.0);
     gl_PointSize = radius;
@@ -256,13 +261,15 @@ uniform int NparticlesSqrt;
 
 uniform sampler2D position_sampler; // 0, particle position
 uniform sampler2D velocity_sampler; // 1, particle velocity
-uniform sampler2D rng_sampler;      // 2, particle rng seeds
-// (User textures start at index 3)
+uniform sampler2D material_sampler; // 2, particle material
+uniform sampler2D rng_sampler;      // 3, particle rng seeds
+// (User textures start at index 4)
 
 /////// output buffers ///////
 layout(location = 0) out vec4 position_output;
 layout(location = 1) out vec4 velocity_output;
-layout(location = 2) out vec4 rng_output;
+layout(location = 2) out vec4 material_output;
+layout(location = 3) out vec4 rng_output;
 
 float rand(inout vec4 rnd)
 {
@@ -323,13 +330,13 @@ void main()
 {
     ivec2 frag = ivec2(gl_FragCoord.xy);
 
-    vec4 P     = texelFetch(position_sampler, frag, 0);
-    vec3 V     = texelFetch(velocity_sampler, frag, 0).xyz;
-    vec4 seed  = texelFetch(rng_sampler, frag, 0);
+    vec4 P     = texelFetch(position_sampler, frag, 0);     // current position
+    vec3 V     = texelFetch(velocity_sampler, frag, 0).xyz; // current velocity
+    vec4 M     = texelFetch(material_sampler, frag, 0);     // current material
+    vec4 seed  = texelFetch(rng_sampler, frag, 0);          // current RNG seed
+
     vec3 X = P.xyz;
     float birth_phase = P.w; // in [0,1]
-
-    // @todo;  not quite right..   does not settle into a smooth steady state
 
     // Compute particle age, i.e time elapsed since last re-birth
     float global_phase = mod(t, lifetime) / lifetime; // in [0,1]
@@ -344,15 +351,18 @@ void main()
         {
             // re-emit particle
             int particle_id = frag.x + frag.y*NparticlesSqrt;
-            EMIT(seed, particle_id, NparticlesSqrt*NparticlesSqrt, X, V);
+            int Nparticles = NparticlesSqrt*NparticlesSqrt;
+            EMIT(seed, t, birth_phase, lifetime, particle_id, Nparticles, // inputs
+                 X, V, M);                                                // emitted position (X), velocity (V), and material (M)
             h = age;
         }
-        UPDATE(X, V, h);
+        UPDATE(X, V, M, t, h); // update position (X), velocity (V), and material (M)
     }
 
     position_output.xyz = X;
     position_output.w   = birth_phase;
     velocity_output.xyz = V;
+    material_output     = M;
     rng_output      = seed;
 }
 `,
@@ -363,7 +373,7 @@ precision highp float;
 in vec3 Position;
 in vec2 TexCoord;
 
-void main() 
+void main()
 {
     gl_Position = vec4(Position, 1.0);
 }

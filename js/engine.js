@@ -28,7 +28,6 @@ var Engine = function()
     // Compile shaders
     this.shaderSources = GLU.resolveShaderSource(["initialize", "update"]);
     this.compileShaders();
-
     this.resize(this.settings.NparticlesSqrt);
     this.restart();
 
@@ -71,6 +70,7 @@ Engine.prototype.resize = function(NparticlesSqrt)
     this.settings.Nparticles     = NparticlesSqrt * NparticlesSqrt;
     this.particle_positions  = this.alloc_texture_pair(NparticlesSqrt, NparticlesSqrt, 4, true, false, true, null);
     this.particle_velocities = this.alloc_texture_pair(NparticlesSqrt, NparticlesSqrt, 4, true, false, true, null);
+    this.particle_materials  = this.alloc_texture_pair(NparticlesSqrt, NparticlesSqrt, 4, true, false, true, null);
     this.particle_rngs       = this.alloc_texture_pair(NparticlesSqrt, NparticlesSqrt, 4, true, false, true, null);
     this.restart();
 }
@@ -146,14 +146,16 @@ Engine.prototype.step = function()
     {
         this.initialize_program.bind();
         this.fbo.bind();
-        this.fbo.drawBuffers(3);
+        this.fbo.drawBuffers(4);
         this.fbo.attachTexture(this.particle_positions[BUFFER_0],  0); // write to particle_positions[BUFFER_0]
         this.fbo.attachTexture(this.particle_velocities[BUFFER_0], 1); // write to particle_velocities[BUFFER_0]
-        this.fbo.attachTexture(this.particle_rngs[BUFFER_0],       2); // write to particle_rngs[BUFFER_0]
+        this.fbo.attachTexture(this.particle_materials[BUFFER_0],  2); // write to particle_materials[BUFFER_0]
+        this.fbo.attachTexture(this.particle_rngs[BUFFER_0],       3); // write to particle_rngs[BUFFER_0]
         this.quadVbo.draw(this.initialize_program, gl.TRIANGLE_FAN);
         this.fbo.detachTexture(0);
         this.fbo.detachTexture(1);
         this.fbo.detachTexture(2);
+        this.fbo.detachTexture(3);
         this.fbo.unbind();
     }
 
@@ -168,20 +170,24 @@ Engine.prototype.step = function()
             particle_system.sync_shader(party, this.update_program);
 
         this.fbo.bind();
-        this.fbo.drawBuffers(3);
+        this.fbo.drawBuffers(4);
         this.fbo.attachTexture(this.particle_positions[BUFFER_1],  0); // write to particle_positions[BUFFER_1]
         this.fbo.attachTexture(this.particle_velocities[BUFFER_1], 1); // write to particle_velocities[BUFFER_1]
-        this.fbo.attachTexture(this.particle_rngs[BUFFER_1],       2); // write to particle_rngs[BUFFER_1]
+        this.fbo.attachTexture(this.particle_materials[BUFFER_1],  2); // write to particle_materials[BUFFER_1]
+        this.fbo.attachTexture(this.particle_rngs[BUFFER_1],       3); // write to particle_rngs[BUFFER_1]
         this.particle_positions[BUFFER_0].bind(0);                     // read from particle_positions[BUFFER_0]
         this.particle_velocities[BUFFER_0].bind(1);                    // read from particle_velocities[BUFFER_0]
-        this.particle_rngs[BUFFER_0].bind(2);                          // read from particle_rngs[BUFFER_0]
+        this.particle_materials[BUFFER_0].bind(2);                     // read from particle_materials[BUFFER_0]
+        this.particle_rngs[BUFFER_0].bind(3);                          // read from particle_rngs[BUFFER_0]
         this.update_program.uniformTexture("position_sampler", this.particle_positions[BUFFER_0]);
         this.update_program.uniformTexture("velocity_sampler", this.particle_velocities[BUFFER_0]);
+        this.update_program.uniformTexture("material_sampler", this.particle_materials[BUFFER_0]);
         this.update_program.uniformTexture("rng_sampler",      this.particle_rngs[BUFFER_0]);
         this.quadVbo.draw(this.update_program, gl.TRIANGLE_FAN);
         this.fbo.detachTexture(0);
         this.fbo.detachTexture(1);
         this.fbo.detachTexture(2);
+        this.fbo.detachTexture(3);
         this.fbo.unbind();
     }
 
@@ -191,9 +197,17 @@ Engine.prototype.step = function()
     this.time += this.settings.timestep;
 }
 
-
 Engine.prototype.get_particle_positions = function()
 {
-	return this.particle_positions[0];
+    return this.particle_positions[0];
 }
 
+Engine.prototype.get_particle_velocities = function()
+{
+    return this.particle_velocities[0];
+}
+
+Engine.prototype.get_particle_materials = function()
+{
+    return this.particle_materials[0];
+}

@@ -98,9 +98,18 @@ Renderer.prototype.render = function()
         if (typeof particle_system.sync_shader !== "undefined")
             particle_system.sync_shader(party, this.render_program);
 
-        let particle_positions = engine.get_particle_positions();
-        particle_positions.bind(0);      // read from particle_positions
+        // particle data
+        let particle_positions  = engine.get_particle_positions();
+        let particle_velocities = engine.get_particle_velocities();
+        let particle_materials  = engine.get_particle_materials();
+        particle_positions.bind(0);  // read from particle_positions
+        particle_velocities.bind(1); // read from particle_velocities
+        particle_materials.bind(2);  // read from particle_materials
         this.render_program.uniformTexture("position_sampler", particle_positions);
+        this.render_program.uniformTexture("velocity_sampler", particle_velocities);
+        this.render_program.uniformTexture("material_sampler", particle_materials);
+
+        // other uniform data
         this.render_program.uniformI("NparticlesSqrt", engine.settings.NparticlesSqrt);
         this.render_program.uniformF("radius", this.settings.radius);
         this.render_program.uniformF("t", engine.time);

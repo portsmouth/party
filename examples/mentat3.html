@@ -27,23 +27,23 @@ ParticleSystem.prototype.init = function(party)
 {
     /******* copy-pasted console output on 'O', begin *******/
 
+    party.showGUI(true);
+
+    /******* copy-pasted console output on 'O', begin *******/
+
     let engine   = party.getEngine();
     let renderer = party.getRenderer();
     let camera   = party.getCamera();
     let controls = party.getControls();
-
+    
         this.params = {};
-        this.params.boxX = 5;
-        this.params.boxY = 5;
-        this.params.boxZ = 5;
+        this.params.boxX = 1;
+        this.params.boxY = 3;
+        this.params.boxZ = 1.2183313145899461;
         this.params.b = 0.05622804294922828;
-        this.params.w = 3.377507377039025;
+        this.params.w = 11.245608589845656;
         this.params.q = 3.823506920547523;
-        this.params.tweak1 = 0.01;
-        this.params.tweak2 = 0.11258357923463416;
-        this.params.tweak3 = 1;
-        this.params.tweak4 = -0.54297934429073;
-
+        
     party.showGUI(true);
 
     /** Camera settings **/
@@ -51,19 +51,19 @@ ParticleSystem.prototype.init = function(party)
     camera.aperture = undefined;
     camera.focalDistance = undefined;
     camera.up.set(0, 1, 0);
-    camera.position.set(38.27163119060828, -42.335963177354515, -33.09178027969723);
-    controls.target.set(-1.0642958370336968, 0.9453474546624923, 0.6693827176612137);
+    camera.position.set(-13.281167903704018, -9.431067254928232, 11.165982097578715);
+    controls.target.set(-0.8236631084914711, 2.5064358911414555, 1.6205342343681737);
 
     /** Engine settings **/
     let NparticlesSqrt = 3000; engine.resize(NparticlesSqrt);
     engine.settings.timestep = 0.02;
-    engine.settings.lifetime = 2;
+    engine.settings.lifetime = 3;
     engine.settings.max_timesteps = 10000;
 
     /** Renderer settings **/
-    renderer.settings.exposure = -4.370821038268292;
-    renderer.settings.gamma = 0.23642551639273174;
-    renderer.settings.saturation = 0.5;
+    renderer.settings.exposure = 1.2456085898456557;
+    renderer.settings.gamma = 0.8096838184688873;
+    renderer.settings.saturation = 0.5397892123125915;
     renderer.settings.radius = 1;
 
     /******* copy-pasted console output on 'O', begin *******/
@@ -83,10 +83,10 @@ ParticleSystem.prototype.init = function(party)
     this.endFrame = this.track_time * this.FPS;
 
     /** Engine settings **/
-    //engine.resize(3000);
-    //engine.settings.timestep = 1.0/this.FPS; // time units per frame
-    //engine.settings.lifetime = 0.1;
-    //engine.settings.max_timesteps = 10000;
+    engine.resize(3000);
+    engine.settings.timestep = 1.0/this.FPS; // time units per frame
+    engine.settings.lifetime = 10.0;
+    engine.settings.max_timesteps = 10000;
 
 }
 
@@ -101,11 +101,7 @@ ParticleSystem.prototype.initGenerator = function()
         this.params.b = ${this.params.b};
         this.params.w = ${this.params.w};
         this.params.q = ${this.params.q};
-        this.params.tweak1 = ${this.params.tweak1};
-        this.params.tweak2 = ${this.params.tweak2};
-        this.params.tweak3 = ${this.params.tweak3};
-        this.params.tweak4 = ${this.params.tweak4};
-`;
+        `;
     }
 
 ParticleSystem.prototype.shader = function()
@@ -135,35 +131,13 @@ ParticleSystem.prototype.shader = function()
     uniform float boxY;
     uniform float boxZ;
 
-    uniform float tweak1;
-    uniform float tweak2;
-    uniform float tweak3;
-    uniform float tweak4;
-
-    vec3 randvec(inout vec4 seed)
-    {
-        return vec3(rand(seed), rand(seed), rand(seed));
-    }
-
     void EMIT(inout vec4 seed, float t, float birth_phase, float lifetime, int particle_id, int num_particles,
               out vec3 X, out vec3 V, out vec4 M)
     {
-        vec3 r3 = -vec3(1.0) + 2.0*randvec(seed);
-        vec3 q = r3 * vec3(boxX, boxY, boxZ);
-        vec3 corner = q - fract(q);
-
-        int pm = int(particle_id) % 3;
-
-        if (pm == 0)
-            X = corner + vec3(rand(seed), rand(seed)*tweak1, rand(seed)*tweak1);
-        else if (pm == 1)
-            X = corner + vec3(rand(seed)*tweak1, rand(seed), rand(seed)*tweak1);
-        else if (pm == 2)
-            X = corner + vec3(rand(seed)*tweak1, rand(seed)*tweak1, rand(seed));
-
-        X *= tweak4;
-
+        vec3 r3 = -vec3(1.0) + 2.0*vec3(rand(seed), rand(seed), rand(seed));
+        X = r3 * vec3(boxX, boxY, boxZ);
         V = vec3(0.0);
+        M = vec4(sin(30.0*birth_phase), cos(30.0*birth_phase), cos(17.0*birth_phase), 0.0);
     }
 
 
@@ -175,23 +149,23 @@ ParticleSystem.prototype.shader = function()
     uniform float w;
     uniform float q;
 
-    vec3 force(vec3 X, float time)
+    vec3 force(vec3 p, float time)
     {
         float P = 0.0;
         const int octaves = 10;
         for (int n=0; n<10; ++n)
         {
-            P += 100.0 * q * spectral_power(float(n)/float(octaves));
+            P += q * spectral_power(float(n)/float(octaves));
         }
 
         vec3 v;
-        float x = X.x;
-        float y = X.y;
-        float z = X.z;
-        v.x = -b*x + sin(y*(1.0+w*P));
-        v.y = -b*y + sin(z*(1.0+w*P));
-        v.z = -b*z + sin(x*(1.0+w*P));
-        return tweak2*v;
+        float x = p.x;
+        float y = p.y;
+        float z = p.z;
+        v.x = -b*x*(1.0+y*P) + w*sin(y);
+        v.y = -b*y*(1.0+z*P)  + w*sin(z);
+        v.z = -b*z*(1.0+x*P)  + w*sin(x);
+        return v;
     }
 
     /////////////////////////////////////////////////
@@ -228,30 +202,11 @@ ParticleSystem.prototype.shader = function()
     // color
     /////////////////////////////////////////////////
 
-    const float EPSILON = 1e-10;
-
-    vec3 HUEtoRGB(in float hue)
-    {
-        // Hue [0..1] to RGB [0..1]
-        // See http://www.chilliant.com/rgb2hsv.html
-        vec3 rgb = abs(hue * 6. - vec3(3, 2, 4)) * vec3(1, -1, -1) + vec3(-1, 2, 2);
-        return clamp(rgb, 0., 1.);
-    }
-
-    vec3 HSVtoRGB(in vec3 hsv)
-    {
-        // Hue-Saturation-Value [0..1] to RGB [0..1]
-        vec3 rgb = HUEtoRGB(hsv.x);
-        return ((rgb - 1.) * hsv.y + 1.) * hsv.z;
-    }
-
     vec3 COLOR(in vec3 X, in vec3 V, in vec4 M,
                float t, float age, float lifetime,
                int particle_id, int num_particles)
     {
-        float hue = 1.0 - age/lifetime;
-        float sat = float(particle_id)/float(num_particles);
-        return HSVtoRGB(vec3(hue, sat, 1.0));
+        return M.rgb;
     }
 
     `;
@@ -281,7 +236,6 @@ ParticleSystem.prototype.postframe_callback = function(party)
     if (this.gif_rendered)
         return;
 
-    // GIF frame rendering
     if (false)
     {
         if (frame < this.endFrame)
@@ -295,6 +249,7 @@ ParticleSystem.prototype.postframe_callback = function(party)
             this.gif_rendered = true;
         }
     }
+
 }
 
 
@@ -320,14 +275,9 @@ ParticleSystem.prototype.sync_shader = function(party, shader)
     shader.uniformF("boxX", this.params.boxX);
     shader.uniformF("boxY", this.params.boxY);
     shader.uniformF("boxZ", this.params.boxZ);
-
     shader.uniformF("b", this.params.b);
     shader.uniformF("w", this.params.w);
     shader.uniformF("q", this.params.q);
-    shader.uniformF("tweak1", this.params.tweak1);
-    shader.uniformF("tweak2", this.params.tweak2);
-    shader.uniformF("tweak3", this.params.tweak3);
-    shader.uniformF("tweak4", this.params.tweak4);
 }
 
 
@@ -339,11 +289,6 @@ ParticleSystem.prototype.init_gui = function(gui)
     gui.addSlider(this.params, {name: 'b', min: 0.0, max: 1.0});
     gui.addSlider(this.params, {name: 'w', min: 0.0, max: 100.0});
     gui.addSlider(this.params, {name: 'q', min: 0.0, max: 10.0});
-
-    gui.addSlider(this.params, {name: 'tweak1', min: 0.0, max: 1.0});
-    gui.addSlider(this.params, {name: 'tweak2', min: 0.0, max: 10.0});
-    gui.addSlider(this.params, {name: 'tweak3', min: -10.0, max: 10.0});
-    gui.addSlider(this.params, {name: 'tweak4', min: -10.0, max: 10.0});
 }
 
 

@@ -3,8 +3,9 @@ precision highp float;
 
 uniform sampler2D position_sampler; // 0, particle position
 uniform sampler2D velocity_sampler; // 1, particle velocity
-uniform sampler2D rng_sampler;      // 2, particle rng seeds
-// (User textures start at index 3)
+uniform sampler2D material_sampler; // 2, particle material
+uniform sampler2D rng_sampler;      // 3, particle rng seeds
+// (User textures start at index 4)
 
 uniform mat4 u_projectionMatrix;
 uniform mat4 u_modelViewMatrix;
@@ -44,6 +45,8 @@ void main()
     ivec2 frag = ivec2(row, col);
 
     vec4 P = texelFetch(position_sampler, frag, 0);
+    vec3 V = texelFetch(velocity_sampler, frag, 0).xyz;
+    vec4 M = texelFetch(material_sampler, frag, 0);
 
     vec3 position = P.xyz;
     float birth_phase = P.w; // in [0,1]
@@ -55,7 +58,7 @@ void main()
     float age = lifetime * dphase;
 
     // Compute particle color via user-specified function
-    pColor = COLOR(position, t, age, lifetime, id, N*N);
+    pColor = COLOR(position, V, M, t, age, lifetime, id, N*N);
 
     gl_Position = u_projectionMatrix * u_modelViewMatrix * vec4(position, 1.0);
     gl_PointSize = radius;

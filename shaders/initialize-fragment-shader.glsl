@@ -5,7 +5,8 @@ precision highp float;
 /////// output buffers ///////
 layout(location = 0) out vec4 position_output;
 layout(location = 1) out vec4 velocity_output;
-layout(location = 2) out vec4 rng_output;
+layout(location = 2) out vec4 material_output;
+layout(location = 3) out vec4 rng_output;
 
 vec3 mod289(vec3 x) {
   return x - floor(x * (1.0 / 289.0)) * 289.0;
@@ -96,6 +97,7 @@ void main()
 
     position_output = vec4(birth_position, birth_phase);
     velocity_output = vec4(0.0);
+    material_output = vec4(0.0);
 
     vec4 seed = vec4(hash(gl_FragCoord.x), hash(gl_FragCoord.y), hash(birth_phase), 1.0);
     rng_output = seed;

@@ -69,12 +69,10 @@ var Party = function(particle_system)
     this.initialized = true;
 }
 
-
 Party.prototype.camChanged = function()
 {
 
 }
-
 
 Party.prototype.getVersion = function()
 {
@@ -242,7 +240,7 @@ Party.prototype.update_hud = function()
 
 Party.prototype.getUserTextureUnitStart = function()
 {
-    return 3;
+    return 4;
 }
 
 

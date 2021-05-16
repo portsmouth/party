@@ -137,8 +137,8 @@ ParticleSystem.prototype.shader = function()
     uniform float boxY;
     uniform float boxZ;
 
-    void EMIT(inout vec4 seed, int particle_id, int num_particles,
-              out vec3 X, out vec3 V)
+    void EMIT(inout vec4 seed, float t, float birth_phase, float lifetime, int particle_id, int num_particles,
+              out vec3 X, out vec3 V, out vec4 M)
     {
         vec3 r3 = -vec3(1.0) + 2.0*vec3(rand(seed), rand(seed), rand(seed));
         X = r3 * vec3(boxX, boxY, boxZ);
@@ -220,7 +220,7 @@ ParticleSystem.prototype.shader = function()
         X += h*Vstar;
     }
 
-    void UPDATE(inout vec3 X, inout vec3 V, float h)
+    void UPDATE(inout vec3 X, inout vec3 V, inout vec4 M, float t, float h)
     {
         rk2_force(X, V, h);
     }
@@ -246,7 +246,7 @@ ParticleSystem.prototype.shader = function()
         return ((rgb - 1.) * hsv.y + 1.) * hsv.z;
     }
 
-    vec3 COLOR(vec3 X,
+    vec3 COLOR(in vec3 X, in vec3 V, in vec4 M,
                float t, float age, float lifetime,
                int particle_id, int num_particles)
     {

@@ -114,11 +114,15 @@ ParticleSystem.prototype.shader = function()
     uniform float boxX;
     uniform float boxZ;
 
-    void EMIT(inout vec4 seed, int particle_id, int num_particles,
-              out vec3 X, out vec3 V)
+    void EMIT(inout vec4 seed, float t, float birth_phase, float lifetime, int particle_id, int num_particles,
+              out vec3 X, out vec3 V, out vec4 M)
     {
         X = vec3(rand(seed)*boxX, 0.0, rand(seed)*boxZ);
         V = vec3(0.0);
+
+        vec2 uv = vec2(X.x/boxX, X.z/boxZ);
+        vec3 pixel = texture(videoFrames, uv).rgb;
+        M.rgb = pixel;
     }
 
     /////////////////////////////////////////////////
@@ -167,7 +171,7 @@ ParticleSystem.prototype.shader = function()
         X += h*Vstar;
     }
 
-    void UPDATE(inout vec3 X, inout vec3 V, float h)
+    void UPDATE(inout vec3 X, inout vec3 V, inout vec4 M, float t, float h)
     {
         rk2_force(X, V, h);
     }
@@ -176,13 +180,11 @@ ParticleSystem.prototype.shader = function()
     // color
     /////////////////////////////////////////////////
 
-    vec3 COLOR(vec3 X,
+    vec3 COLOR(in vec3 X, in vec3 V, in vec4 M,
                float t, float age, float lifetime,
                int particle_id, int num_particles)
     {
-        vec2 uv = vec2(X.x/boxX, X.z/boxZ);
-        vec3 pixel = texture(videoFrames, uv).rgb;
-        return pixel;
+        return M.rgb;
     }
 
     `;
