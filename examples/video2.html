@@ -1,0 +1,334 @@
+
+<body onload="onLoad();" style="
+margin: 0px;
+overflow: hidden;
+height: 100%;
+width: 100%;
+background-size: 100%;">
+
+<script src='../js/thirdparty/three/three.min.js'></script>
+<script src='../js/thirdparty/three/libs/stats.min.js'></script>
+<script src='../js/thirdparty/three/libs/dat.gui.min.js'></script>
+<script src='../js/thirdparty/three/controls/OrbitControls.js'></script>
+<script src='../js/thirdparty/gif.js/gif.js'></script>
+<script src='../js/thirdparty/gif.js/gif.worker.js'></script>
+<script src='../js/gl.js'></script>
+<script src='../js/gui.js'></script>
+<script src='../js/shaders.js'></script>
+<script src='../js/renderer.js'></script>
+<script src='../js/engine.js'></script>
+<script src='../js/party.js'></script>
+
+<script>
+
+function ParticleSystem() {}
+
+ParticleSystem.prototype.init = function(party)
+{
+    /******* copy-pasted console output on 'O', begin *******/
+
+    party.showGUI(true);
+
+    /******* copy-pasted console output on 'O', begin *******/
+
+    let engine   = party.getEngine();
+    let renderer = party.getRenderer();
+    let camera   = party.getCamera();
+    let controls = party.getControls();
+
+        this.params = {};
+        this.params.boxX = 1.7086922404019518;
+        this.params.boxZ = 1;
+        this.params.b = 100;
+        this.params.w = 0;
+        this.params.q = 1;
+        
+    party.showGUI(true);
+
+    /** Camera settings **/
+    camera.fov = 45;
+    camera.up.set(0, 1, 0);
+    camera.position.set(0.9087678177020748, 1.230831408168819, 0.642746392573722);
+    controls.target.set(0.9069597379522953, -0.38359792990129316, 0.49606352965175676);
+
+    /** Engine settings **/
+    let NparticlesSqrt = 4503; engine.resize(NparticlesSqrt);
+    engine.settings.timestep = 0.02;
+    engine.settings.lifetime = 3.377507377039025;
+    engine.settings.max_timesteps = 1e6;
+
+    /** Renderer settings **/
+    renderer.settings.exposure = 1.483525081932683;
+    renderer.settings.gamma = 0.9119269918005366;
+    renderer.settings.saturation = 0.5;
+
+    /******* copy-pasted console output on 'O', begin *******/
+
+    /*
+    this.track_time = 34.58587301587301;
+    this.FPS = 50.0;
+    this.endFrame = this.track_time * this.FPS;
+
+    engine.resize(3000);
+    engine.settings.timestep = 1.0/this.FPS; // time units per frame
+    engine.settings.lifetime = 10.0;
+    engine.settings.max_timesteps = 10000;
+    */
+
+    //////////////////////////////////////////////////////////////
+    // video
+    //////////////////////////////////////////////////////////////
+
+    let gl = party.getGLContext();
+    this.vidBuffer = new GLU.Texture(party.width, party.height, 3, false, true, true, null);
+
+}
+
+
+ParticleSystem.prototype.initGenerator = function()
+{
+        return `
+        this.params = {};
+        this.params.boxX = ${this.params.boxX};
+        this.params.boxZ = ${this.params.boxZ};
+        this.params.b = ${this.params.b};
+        this.params.w = ${this.params.w};
+        this.params.q = ${this.params.q};
+        `;
+    }
+
+ParticleSystem.prototype.shader = function()
+{
+    return `
+
+    /////////////////////////////////////////////////
+    // video
+    ///////////////////////////////////////////////
+
+    uniform sampler2D videoFrames;      // USER texture unit 0
+
+    /////////////////////////////////////////////////
+    // emission
+    /////////////////////////////////////////////////
+
+    uniform float boxX;
+    uniform float boxZ;
+
+    void EMIT(inout vec4 seed, int particle_id, int num_particles,
+              out vec3 X, out vec3 V)
+    {
+        X = vec3(rand(seed)*boxX, 0.0, rand(seed)*boxZ);
+        V = vec3(0.0);
+    }
+
+    /////////////////////////////////////////////////
+    // force
+    /////////////////////////////////////////////////
+
+    uniform float b;
+    uniform float w;
+    uniform float q;
+
+    vec3 force(vec3 X, float time)
+    {
+        vec3 v;
+
+        vec2 uv = vec2(X.x/boxX, X.z/boxZ);
+        vec3 pixel = texture(videoFrames, uv).rgb;
+
+        v.x = b*pixel.r;
+        v.y = b*pixel.g;
+        v.z = b*pixel.b;
+        return q*v;
+    }
+
+    /////////////////////////////////////////////////
+    // integrator
+    /////////////////////////////////////////////////
+
+    // Midpoint method, see https://cg.informatik.uni-freiburg.de/course_notes/sim_01_particleMotion.pdf
+    void rk2_force(inout vec3 X, inout vec3 V, float h)
+    {
+        vec3 f = force(X, t);
+        float h2 = 0.5*h;
+        vec3 Xstar = X + h2*V;
+        vec3 Vstar = V + h2*f;
+        vec3 fstar = force(Xstar, t+h2);
+        X += h*Vstar;
+        V += h*fstar;
+    }
+
+    void rk2_flow(inout vec3 X, inout vec3 V, float h)
+    {
+        V = force(X, t);
+        float h2 = 0.5*h;
+        vec3 Xstar = X + h2*V;
+        vec3 Vstar = force(Xstar, t+h2);
+        X += h*Vstar;
+    }
+
+    void UPDATE(inout vec3 X, inout vec3 V, float h)
+    {
+        rk2_force(X, V, h);
+    }
+
+    /////////////////////////////////////////////////
+    // color
+    /////////////////////////////////////////////////
+
+    vec3 COLOR(vec3 X,
+               float t, float age, float lifetime,
+               int particle_id, int num_particles)
+    {
+        vec2 uv = vec2(X.x/boxX, X.z/boxZ);
+        vec3 pixel = texture(videoFrames, uv).rgb;
+        return pixel;
+    }
+
+    `;
+}
+
+
+ParticleSystem.prototype.preframe_callback = function(party)
+{
+    let engine = party.getEngine();
+    let frame = engine.get_frame();
+    if (frame==0)
+    {
+        let dt_ms = 1000.0 * engine.get_timestep();
+        party.gif_init("test.gif", dt_ms);
+        this.gif_rendered = false;
+    }
+}
+
+ParticleSystem.prototype.postframe_callback = function(party)
+{
+    let gl = party.getGLContext();
+    let engine = party.getEngine();
+
+    let frame = engine.get_frame();
+    let dt = engine.get_timestep();
+    let time = frame*dt;
+    if (this.gif_rendered)
+        return;
+
+    if (false)
+    {
+        if (frame < this.endFrame)
+        {
+            party.gif_add_frame();
+        }
+        else
+        {
+            engine.pause();
+            party.gif_render();
+            this.gif_rendered = true;
+        }
+    }
+
+}
+
+
+ParticleSystem.prototype.sync_shader = function(party, shader)
+{
+    let gl = party.getGLContext();
+    let engine = party.getEngine();
+
+    let start_texture_unit = party.getUserTextureUnitStart();
+    let program = shader.getProgram();
+
+    // Pull the current frame out of the video, as a GL texture
+    this.vidBuffer.bind(0);
+    //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, videoElement);
+    this.vidBuffer.setFilter();
+    gl.bindTexture(gl.TEXTURE_2D, null);
+
+    // Upload vid buffer texture to sampler
+    this.vidBuffer.bind(start_texture_unit);
+    shader.uniformTexture("videoFrames", this.vidBuffer);
+
+    // Set other uniform variables
+    shader.uniformF("boxX", this.params.boxX);
+    shader.uniformF("boxZ", this.params.boxZ);
+    shader.uniformF("b", this.params.b);
+    shader.uniformF("w", this.params.w);
+    shader.uniformF("q", this.params.q);
+}
+
+
+ParticleSystem.prototype.init_gui = function(gui)
+{
+    gui.addSlider(this.params, {name: 'boxX', min: -10.0, max: 10.0});
+    gui.addSlider(this.params, {name: 'boxZ', min: -10.0, max: 10.0});
+    gui.addSlider(this.params, {name: 'b', min: 0.0, max: 100.0});
+    gui.addSlider(this.params, {name: 'w', min: 0.0, max: 100.0});
+    gui.addSlider(this.params, {name: 'q', min: 0.0, max: 1.0});
+}
+
+
+</script>
+
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*                              video                                */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<video id="video" controls loop>
+    Your browser doesn't appear to support the HTML5 <code>&lt;video&gt;</code> element.
+</video>
+
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*                            main loop                              */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script type="text/javascript">
+
+var particleSystem;
+
+var videoElement;
+
+function videoDebug(videoElement)
+{
+
+}
+
+function startVideo()
+{
+    console.log('video start..');
+    videoElement.play();
+    let THIS = videoElement;
+    intervalID = setInterval(function() { videoDebug(THIS); }, 15);
+}
+
+function videoDone()
+{
+    videoElement.play();
+}
+
+function onLoad()
+{
+    videoElement = document.getElementById('video');
+
+    videoElement.preload = 'auto';
+    videoElement.src = 'https://rawgit.com/portsmouth/testvids/master/bladerunnerTheJump.mp4'
+    videoElement.crossOrigin = "";
+    videoElement.autoplay = false;
+    videoElement.muted = true;
+
+    videoElement.addEventListener('canplaythrough', startVideo, true);
+    videoElement.addEventListener('ended', videoDone, true);
+
+    particleSystem =  new ParticleSystem();
+    party = new Party(particleSystem); animateLoop();
+}
+
+function animateLoop()
+{
+    party.step();
+    window.requestAnimationFrame(animateLoop);
+}
+</script>
+
+</body>

@@ -1,0 +1,18 @@
+
+GIF -> smooth mp4 process:
+
+1) Expand gif into PNGS:
+
+        ffmpeg -i test.gif frame%04d.png
+
+2) Build MP4 from frames, at desired frame-rate.
+
+        ffmpeg -r 60 -f image2 -i frame%04d.png -vb 20M output.mp4
+
+3) Add audio track, say audio.wav:
+
+        ffmpeg -i video.mp4 -i audio.wav -c:v copy -map 0:v:0 -map 1:a:0 -c:a aac final.mp4
+
+4) cleanup
+
+        rm *.png

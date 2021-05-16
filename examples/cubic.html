@@ -1,0 +1,371 @@
+
+<body onload="onLoad();" style="
+margin: 0px;
+overflow: hidden;
+height: 100%;
+width: 100%;
+background-size: 100%;">
+
+<script src='../js/thirdparty/three/three.min.js'></script>
+<script src='../js/thirdparty/three/libs/stats.min.js'></script>
+<script src='../js/thirdparty/three/libs/dat.gui.min.js'></script>
+<script src='../js/thirdparty/three/controls/OrbitControls.js'></script>
+<script src='../js/thirdparty/gif.js/gif.js'></script>
+<script src='../js/thirdparty/gif.js/gif.worker.js'></script>
+<script src='../js/gl.js'></script>
+<script src='../js/gui.js'></script>
+<script src='../js/shaders.js'></script>
+<script src='../js/renderer.js'></script>
+<script src='../js/engine.js'></script>
+<script src='../js/party.js'></script>
+
+<script>
+
+function ParticleSystem() {}
+
+ParticleSystem.prototype.init = function(party)
+{
+    /******* copy-pasted console output on 'O', begin *******/
+
+    let engine   = party.getEngine();
+    let renderer = party.getRenderer();
+    let camera   = party.getCamera();
+    let controls = party.getControls();
+
+        this.params = {};
+        this.params.boxX = 5;
+        this.params.boxY = 5;
+        this.params.boxZ = 5;
+        this.params.b = 0.05622804294922828;
+        this.params.w = 3.377507377039025;
+        this.params.q = 3.823506920547523;
+        this.params.tweak1 = 0.01;
+        this.params.tweak2 = 0.11258357923463416;
+        this.params.tweak3 = 1;
+        this.params.tweak4 = -0.54297934429073;
+
+    party.showGUI(true);
+
+    /** Camera settings **/
+    camera.fov = 45;
+    camera.aperture = undefined;
+    camera.focalDistance = undefined;
+    camera.up.set(0, 1, 0);
+    camera.position.set(38.27163119060828, -42.335963177354515, -33.09178027969723);
+    controls.target.set(-1.0642958370336968, 0.9453474546624923, 0.6693827176612137);
+
+    /** Engine settings **/
+    let NparticlesSqrt = 3000; engine.resize(NparticlesSqrt);
+    engine.settings.timestep = 0.02;
+    engine.settings.lifetime = 2;
+    engine.settings.max_timesteps = 10000;
+
+    /** Renderer settings **/
+    renderer.settings.exposure = -4.370821038268292;
+    renderer.settings.gamma = 0.23642551639273174;
+    renderer.settings.saturation = 0.5;
+    renderer.settings.radius = 1;
+
+    /******* copy-pasted console output on 'O', begin *******/
+
+    let ME = this;
+    let wav_spectrogram = 'Dune_spectrogram_custom_34.58587301587301.jpg';
+    let spectrogram_url = 'file://C:/Users/jamportz/dev/spectrogram/' + wav_spectrogram;
+    this.spectrogramTex = null;
+        GLU.loadImageAndCreateTextureInfo(spectrogram_url, function(imgInfo) {
+            ME.spectrogramTex = imgInfo.texture;
+            console.log('spectrogram loaded from: ', spectrogram_url);
+            engine.restart();
+        });
+
+    this.track_time = 34.58587301587301;
+    this.FPS = 50.0;
+    this.endFrame = this.track_time * this.FPS;
+
+    /** Engine settings **/
+    //engine.resize(3000);
+    //engine.settings.timestep = 1.0/this.FPS; // time units per frame
+    //engine.settings.lifetime = 0.1;
+    //engine.settings.max_timesteps = 10000;
+
+}
+
+
+ParticleSystem.prototype.initGenerator = function()
+{
+        return `
+        this.params = {};
+        this.params.boxX = ${this.params.boxX};
+        this.params.boxY = ${this.params.boxY};
+        this.params.boxZ = ${this.params.boxZ};
+        this.params.b = ${this.params.b};
+        this.params.w = ${this.params.w};
+        this.params.q = ${this.params.q};
+        this.params.tweak1 = ${this.params.tweak1};
+        this.params.tweak2 = ${this.params.tweak2};
+        this.params.tweak3 = ${this.params.tweak3};
+        this.params.tweak4 = ${this.params.tweak4};
+`;
+    }
+
+ParticleSystem.prototype.shader = function()
+{
+    return `
+
+    /////////////////////////////////////////////////
+    // audio spectrogram
+    /////////////////////////////////////////////////
+
+    uniform float track_fraction;
+    uniform sampler2D spectrogramTex;  // USER texture unit 0
+
+    float spectral_power(float frequency_reltomax)
+    {
+        frequency_reltomax = clamp(frequency_reltomax, 0.0, 1.0);
+        vec2 spectrogram_uv = vec2(track_fraction, 1.0-frequency_reltomax);
+        float power = texture(spectrogramTex, spectrogram_uv).r;
+        return power;
+    }
+
+    /////////////////////////////////////////////////
+    // emission
+    /////////////////////////////////////////////////
+
+    uniform float boxX;
+    uniform float boxY;
+    uniform float boxZ;
+
+    uniform float tweak1;
+    uniform float tweak2;
+    uniform float tweak3;
+    uniform float tweak4;
+
+    vec3 randvec(inout vec4 seed)
+    {
+        return vec3(rand(seed), rand(seed), rand(seed));
+    }
+
+    void EMIT(inout vec4 seed, int particle_id, int num_particles,
+              out vec3 X, out vec3 V)
+    {
+        vec3 r3 = -vec3(1.0) + 2.0*randvec(seed);
+        vec3 q = r3 * vec3(boxX, boxY, boxZ);
+        vec3 corner = q - fract(q);
+
+        int pm = int(particle_id) % 3;
+
+        if (pm == 0)
+            X = corner + vec3(rand(seed), rand(seed)*tweak1, rand(seed)*tweak1);
+        else if (pm == 1)
+            X = corner + vec3(rand(seed)*tweak1, rand(seed), rand(seed)*tweak1);
+        else if (pm == 2)
+            X = corner + vec3(rand(seed)*tweak1, rand(seed)*tweak1, rand(seed));
+
+        X *= tweak4;
+
+        V = vec3(0.0);
+    }
+
+
+    /////////////////////////////////////////////////
+    // force
+    /////////////////////////////////////////////////
+
+    uniform float b;
+    uniform float w;
+    uniform float q;
+
+    vec3 force(vec3 X, float time)
+    {
+        float P = 0.0;
+        const int octaves = 10;
+        for (int n=0; n<10; ++n)
+        {
+            P += 100.0 * q * spectral_power(float(n)/float(octaves));
+        }
+
+        vec3 v;
+        float x = X.x;
+        float y = X.y;
+        float z = X.z;
+        v.x = -b*x + sin(y*(1.0+w*P));
+        v.y = -b*y + sin(z*(1.0+w*P));
+        v.z = -b*z + sin(x*(1.0+w*P));
+        return tweak2*v;
+    }
+
+    /////////////////////////////////////////////////
+    // integrator
+    /////////////////////////////////////////////////
+
+    // Midpoint method, see https://cg.informatik.uni-freiburg.de/course_notes/sim_01_particleMotion.pdf
+    void rk2_force(inout vec3 X, inout vec3 V, float h)
+    {
+        vec3 f = force(X, t);
+        float h2 = 0.5*h;
+        vec3 Xstar = X + h2*V;
+        vec3 Vstar = V + h2*f;
+        vec3 fstar = force(Xstar, t+h2);
+        X += h*Vstar;
+        V += h*fstar;
+    }
+
+    void rk2_flow(inout vec3 X, inout vec3 V, float h)
+    {
+        V = force(X, t);
+        float h2 = 0.5*h;
+        vec3 Xstar = X + h2*V;
+        vec3 Vstar = force(Xstar, t+h2);
+        X += h*Vstar;
+    }
+
+    void UPDATE(inout vec3 X, inout vec3 V, float h)
+    {
+        rk2_flow(X, V, h);
+    }
+
+    /////////////////////////////////////////////////
+    // color
+    /////////////////////////////////////////////////
+
+    const float EPSILON = 1e-10;
+
+    vec3 HUEtoRGB(in float hue)
+    {
+        // Hue [0..1] to RGB [0..1]
+        // See http://www.chilliant.com/rgb2hsv.html
+        vec3 rgb = abs(hue * 6. - vec3(3, 2, 4)) * vec3(1, -1, -1) + vec3(-1, 2, 2);
+        return clamp(rgb, 0., 1.);
+    }
+
+    vec3 HSVtoRGB(in vec3 hsv)
+    {
+        // Hue-Saturation-Value [0..1] to RGB [0..1]
+        vec3 rgb = HUEtoRGB(hsv.x);
+        return ((rgb - 1.) * hsv.y + 1.) * hsv.z;
+    }
+
+    vec3 COLOR(vec3 X,
+               float t, float age, float lifetime,
+               int particle_id, int num_particles)
+    {
+        float hue = 1.0 - age/lifetime;
+        float sat = float(particle_id)/float(num_particles);
+        return HSVtoRGB(vec3(hue, sat, 1.0));
+    }
+
+    `;
+}
+
+
+ParticleSystem.prototype.preframe_callback = function(party)
+{
+    let engine = party.getEngine();
+    let frame = engine.get_frame();
+    if (frame==0)
+    {
+        let dt_ms = 1000.0 * engine.get_timestep();
+        party.gif_init("test.gif", dt_ms);
+        this.gif_rendered = false;
+    }
+}
+
+ParticleSystem.prototype.postframe_callback = function(party)
+{
+    let gl = party.getGLContext();
+    let engine = party.getEngine();
+
+    let frame = engine.get_frame();
+    let dt = engine.get_timestep();
+    let time = frame*dt;
+    if (this.gif_rendered)
+        return;
+
+    // GIF frame rendering
+    if (false)
+    {
+        if (frame < this.endFrame)
+        {
+            party.gif_add_frame();
+        }
+        else
+        {
+            engine.pause();
+            party.gif_render();
+            this.gif_rendered = true;
+        }
+    }
+}
+
+
+ParticleSystem.prototype.sync_shader = function(party, shader)
+{
+    let gl = party.getGLContext();
+    let engine = party.getEngine();
+
+    let start_texture_unit = party.getUserTextureUnitStart();
+    let program = shader.getProgram();
+
+    gl.activeTexture(gl.TEXTURE0 + start_texture_unit+0);
+    gl.bindTexture(gl.TEXTURE_2D, this.spectrogramTex);
+    gl.uniform1i(gl.getUniformLocation(program, "spectrogramTex"), start_texture_unit+0);
+
+    let frame = engine.get_frame();
+    let dt = engine.get_timestep();
+    let time = frame*dt;
+
+    //console.log("track_fraction: ", time/this.track_time);
+    shader.uniformF("track_fraction", time/this.track_time);
+
+    shader.uniformF("boxX", this.params.boxX);
+    shader.uniformF("boxY", this.params.boxY);
+    shader.uniformF("boxZ", this.params.boxZ);
+
+    shader.uniformF("b", this.params.b);
+    shader.uniformF("w", this.params.w);
+    shader.uniformF("q", this.params.q);
+    shader.uniformF("tweak1", this.params.tweak1);
+    shader.uniformF("tweak2", this.params.tweak2);
+    shader.uniformF("tweak3", this.params.tweak3);
+    shader.uniformF("tweak4", this.params.tweak4);
+}
+
+
+ParticleSystem.prototype.init_gui = function(gui)
+{
+    gui.addSlider(this.params, {name: 'boxX', min: -100.0, max: 100.0});
+    gui.addSlider(this.params, {name: 'boxY', min: -100.0, max: 100.0});
+    gui.addSlider(this.params, {name: 'boxZ', min: -100.0, max: 100.0});
+    gui.addSlider(this.params, {name: 'b', min: 0.0, max: 1.0});
+    gui.addSlider(this.params, {name: 'w', min: 0.0, max: 100.0});
+    gui.addSlider(this.params, {name: 'q', min: 0.0, max: 10.0});
+
+    gui.addSlider(this.params, {name: 'tweak1', min: 0.0, max: 1.0});
+    gui.addSlider(this.params, {name: 'tweak2', min: 0.0, max: 10.0});
+    gui.addSlider(this.params, {name: 'tweak3', min: -10.0, max: 10.0});
+    gui.addSlider(this.params, {name: 'tweak4', min: -10.0, max: 10.0});
+}
+
+
+</script>
+
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*                            main loop                              */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script type="text/javascript">
+function onLoad()
+{
+    party = new Party(new ParticleSystem()); animateLoop();
+}
+function animateLoop()
+{
+    party.step();
+    window.requestAnimationFrame(animateLoop);
+}
+</script>
+
+
+
+</body>
