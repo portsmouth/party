@@ -81,8 +81,6 @@ void main()
     vec3 X = P.xyz;
     float birth_phase = P.w; // in [0,1]
 
-    // @todo;  not quite right..   does not settle into a smooth steady state
-
     // Compute particle age, i.e time elapsed since last re-birth
     float global_phase = mod(t, lifetime) / lifetime; // in [0,1]
     float dphase = global_phase - birth_phase; // current relative phase of particle birth time and global time
