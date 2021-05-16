@@ -13,10 +13,11 @@ var Engine = function()
 
     let gl = GLU.gl;
     let MAX_TEX_WIDTH = gl.getParameter(gl.MAX_TEXTURE_SIZE); // maximum texture width available in WebGL2
-    //if (this.NparticlesSqrt > MAX_TEX_WIDTH)
-    //{
-        // @todo: blah
-    //}
+    if (this.NparticlesSqrt > MAX_TEX_WIDTH)
+    {
+        console.error("Particle count " + this.NparticlesSqrt + " too high. Max is " + MAX_TEX_WIDTH);
+        GLU.fail("Particle count " + this.NparticlesSqrt + " too high. Max is " + MAX_TEX_WIDTH);
+    }
 
     // Create a quad VBO for rendering textures
     this.quadVbo = this.createQuadVbo();
