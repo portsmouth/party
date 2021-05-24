@@ -42,8 +42,8 @@ ParticleSystem.prototype.loadSDF = function(sdf_js, initialize_camera=false)
     gl.texImage3D(gl.TEXTURE_3D, 0, internalformat, 1, 1, 1, 0, format, type, null);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
 
     let md = sdf_js.metadata;
     SCENE.ORIG = md.ORIG;
@@ -312,7 +312,7 @@ ParticleSystem.prototype.shader = function()
 
     void UPDATE(inout vec3 X, inout vec3 V, inout vec4 M, float t, float h)
     {
-        rk2_flow(X, V, h);
+        rk2_force(X, V, h);
     }
 
     /////////////////////////////////////////////////

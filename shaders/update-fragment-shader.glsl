@@ -88,23 +88,20 @@ void main()
     // Compute particle age, i.e time elapsed since last re-birth
     float global_phase = mod(t, lifetime) / lifetime; // in [0,1]
     float dphase = global_phase - birth_phase; // current relative phase of particle birth time and global time
-    bool born = (t>lifetime) || (dphase>0.0);
-    if (born)
+    dphase = mod(dphase, 1.0);
+    float age = lifetime * dphase;
+    float h = min(age, dt);
+    if (t==0.0 || age<dt)
     {
-        dphase = mod(dphase, 1.0);
-        float age = lifetime * dphase;
-        float h = dt;
-        if (age < dt)
-        {
-            // re-emit particle
-            int particle_id = frag.x + frag.y*NparticlesSqrt;
-            int Nparticles = NparticlesSqrt*NparticlesSqrt;
-            EMIT(seed, t, birth_phase, lifetime, particle_id, Nparticles, // inputs
-                 X, V, M);                                                // emitted position (X), velocity (V), and material (M)
-            h = age;
-        }
-        UPDATE(X, V, M, t, h); // update position (X), velocity (V), and material (M)
+        // (re-)emit particle
+        int particle_id = frag.x + frag.y*NparticlesSqrt;
+        int Nparticles = NparticlesSqrt*NparticlesSqrt;
+        EMIT(seed, t, birth_phase, lifetime, particle_id, Nparticles, // inputs
+                X, V, M);                                                // emitted position (X), velocity (V), and material (M)
     }
+
+    // update position (X), velocity (V), and material (M)
+    UPDATE(X, V, M, t, h);
 
     position_output.xyz = X;
     position_output.w   = birth_phase;

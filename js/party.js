@@ -483,6 +483,7 @@ Party.prototype.gif_init = function(gif_name, gif_frame_ms)
     let engine = this.getEngine();
 
     this.GIF.on('finished', function(blob) {
+            console.log("gif rendering done.");
             var link = document.createElement('a');
             link.download = gif_name;
             link.href = URL.createObjectURL(blob);
@@ -509,6 +510,7 @@ Party.prototype.gif_add_frame = function()
 
 Party.prototype.gif_render = function()
 {
+    console.log("rendering gif...");
     this.GIF.render();
 }
 
