@@ -1,0 +1,441 @@
+
+<body onload="onLoad();" style="
+margin: 0px;
+overflow: hidden;
+height: 100%;
+width: 100%;
+background-size: 100%;">
+
+<script src='../js/thirdparty/three/three.min.js'></script>
+<script src='../js/thirdparty/three/libs/stats.min.js'></script>
+<script src='../js/thirdparty/three/libs/dat.gui.min.js'></script>
+<script src='../js/thirdparty/three/controls/OrbitControls.js'></script>
+<script src='../js/thirdparty/gif.js/gif.js'></script>
+<script src='../js/thirdparty/gif.js/gif.worker.js'></script>
+<script src='../js/gl.js'></script>
+<script src='../js/gui.js'></script>
+<script src='../js/shaders.js'></script>
+<script src='../js/renderer.js'></script>
+<script src='../js/engine.js'></script>
+<script src='../js/party.js'></script>
+
+<script>
+
+function ParticleSystem() {}
+
+ParticleSystem.prototype.init = function(party)
+{
+    /******* copy-pasted console output on 'O', begin *******/
+
+    let engine   = party.getEngine();
+    let renderer = party.getRenderer();
+    let camera   = party.getCamera();
+    let controls = party.getControls();
+
+        this.params = {};
+        this.params.emitterX = -4;
+        this.params.emitterY = 0;
+        this.params.emitterZ = 0;
+        this.params.emitterVelocityX = 1;
+        this.params.emitterVelocityY = 0;
+        this.params.emitterVelocityZ = 1;
+        this.params.emitterRadius = 0.001;
+
+        this.params.base_ior = 1.0132522131117074;
+        this.params.abbe = 39.40425273212196;
+        this.params.time_period = 6.0;
+        this.params.b = 4.8410939070892685;
+        this.params.c = 1.1258357923463416;
+        this.params.ior_pert = 1.1258357923463416;
+        this.params.R = 3.3;
+        this.params.H = 10;
+        this.params.delta = 0.6980181912547319;
+        
+    party.showGUI(true);
+
+    /** Camera settings **/
+    camera.fov = 45;
+    camera.up.set(0, 1, 0);
+    camera.position.set(2.4841919353710913, 0.01341376610162445, 8.80117709261254);
+    controls.target.set(2.4841919353710913, 0.013413766101623785, -2.080931148384697);
+
+    /** Engine settings **/
+    let NparticlesSqrt = 3000; engine.resize(NparticlesSqrt);
+    engine.settings.timestep = 0.02;
+    engine.settings.lifetime = 30.397566393351223;
+    engine.settings.max_timesteps = 10000;
+
+    /** Renderer settings **/
+    renderer.settings.exposure = -1.2184808196985344;
+    renderer.settings.gamma = 0.45033431693853665;
+    renderer.settings.saturation = 1.0132522131117074;
+    renderer.settings.contrast = 0.9794771393413171;
+    renderer.settings.radius = 0;
+
+    /******* copy-pasted console output on 'O', begin *******/
+
+    this.FPS = 30.0;
+    this.startFrame = 5000;
+    this.startTime = this.startFrame / this.FPS;
+    //this.startTime = Math.ceil(this.startTime/this.params.time_period) * this.params.time_period;
+    this.endFrame = (this.startTime + this.params.time_period) * this.FPS;
+
+    /** Engine settings **/
+    engine.settings.timestep = 1.0/this.FPS; // time units per frame
+    engine.settings.max_timesteps = 100000;
+
+}
+
+
+ParticleSystem.prototype.initGenerator = function()
+{
+        return `
+        this.params = {};
+        this.params.emitterX = ${this.params.emitterX};
+        this.params.emitterY = ${this.params.emitterY};
+        this.params.emitterZ = ${this.params.emitterZ};
+        this.params.emitterVelocityX = ${this.params.emitterVelocityX};
+        this.params.emitterVelocityY = ${this.params.emitterVelocityY};
+        this.params.emitterVelocityZ = ${this.params.emitterVelocityZ};
+        this.params.emitterRadius = ${this.params.emitterRadius};
+
+        this.params.base_ior = ${this.params.base_ior};
+        this.params.abbe = ${this.params.abbe};
+        this.params.time_period = ${this.params.time_period};
+        this.params.b = ${this.params.b};
+        this.params.c = ${this.params.c};
+        this.params.ior_pert = ${this.params.ior_pert};
+        this.params.R = ${this.params.R};
+        this.params.H = ${this.params.H};
+        this.params.delta = ${this.params.delta};
+        `;
+    }
+
+ParticleSystem.prototype.shader = function()
+{
+    return `
+
+    #define M_PI 3.1415926
+
+    /////////////////////////////////////////////////
+    // emission
+    /////////////////////////////////////////////////
+
+    uniform float emitterX;
+    uniform float emitterY;
+    uniform float emitterZ;
+    uniform float emitterRadius;
+    uniform float emitterVelocityX;
+    uniform float emitterVelocityY;
+    uniform float emitterVelocityZ;
+
+    uniform float time_period;
+    uniform float b;
+    uniform float c;
+    uniform float ior_pert;
+
+
+    void EMIT(inout vec4 seed, float t, float birth_phase, float lifetime, int particle_id, int num_particles,
+              out vec3 X, out vec3 V, out vec4 M)
+    {
+        float phi = 2.0 * M_PI * rand(seed);
+        float theta = acos(2.0*rand(seed)-1.0);
+        float Cth = cos(theta);
+        float Sth = sin(theta);
+
+        float r = emitterRadius;
+        X.x = r*Sth*cos(phi);
+        X.y = r*Sth*sin(phi);
+        X.z = r*Cth;
+
+        float id = float(particle_id) / float(num_particles);
+        int num_blobs = int(100.0 * c);
+        float y = -1.0 + 2.0*floor(id * float(num_blobs)) / float(num_blobs);
+
+        X += vec3(emitterX, emitterY + b*y, emitterZ);
+        V = vec3(emitterVelocityX, 0.0, 0.0);
+
+        float w = rand(seed);
+        float wavelength_nm = 390.0 + (750.0 - 390.0)*w;
+        M.w = wavelength_nm;
+    }
+
+
+    /////////////////////////////////////////////////
+    // IOR
+    /////////////////////////////////////////////////
+
+    uniform float base_ior;
+    uniform float abbe;
+
+    float wavelength_to_IOR(float wavelength_nm)
+    {
+        float IOR =  base_ior * (1.0 + ior_pert*abs(sin(4.0*M_PI*t/time_period)));
+        if (abbe <= 0.0)
+            return IOR;
+        float nD2 = 0.5893; nD2 *= nD2;
+        float nF2 = 0.4861; nF2 *= nF2;
+        float nC2 = 0.6563; nC2 *= nC2;
+        float cauchyC = (IOR - 1.0)/abbe * (nC2*nF2)/(nC2 - nF2);
+        float cauchyB = IOR - cauchyC/nD2;
+        float wavelength_um = 1.0e-3*wavelength_nm;
+        float l = wavelength_um;
+        return cauchyB + cauchyC/(l*l);
+    }
+
+    uniform float R;
+    uniform float H;
+
+    vec3 rotate2d(in vec3 X, in float angle)
+    {
+        float c = cos(angle);
+        float s = sin(angle);
+        return vec3(c*X.x - s*X.y, c*X.y + s*X.x, X.z);
+    }
+
+    float sdWedge(vec3 X, float phi)
+    {
+        const float eps = 1.0e-4;
+        float sh = max(X.z-H, -X.z-H);
+        float s1 = -X.x-eps;
+        float s2 = X.x*cos(phi) - X.y*sin(phi) - eps;
+        float s3 = X.x*sin(0.5*phi) + (X.y-R)*cos(0.5*phi) - eps;
+        return max(max(max(s1, s2), s3), sh);
+    }
+
+    float opU( float d1, float d2 ) { return min(d1,d2); }
+
+    float sdPrism(vec3 X)
+    {
+        const int sides = 3;
+        float phi = 2.0*M_PI/float(sides);
+        float s = sdWedge(X, phi);
+        for (int n=1; n<sides; n++)
+        {
+            float w = sdWedge(rotate2d(X, float(n)*phi), phi);
+            s = opU(s, w);
+        }
+        return s;
+    }
+
+    float sdSphere(vec3 X, float r)
+    {
+        return length(X) - r;
+    }
+
+    /////////////////////////////////////////////////
+    // force
+    /////////////////////////////////////////////////
+
+    uniform float delta;
+
+    float IOR(inout vec3 X, float wavelength_nm)
+    {
+        float ior_constant = wavelength_to_IOR(wavelength_nm);
+        float s = sdSphere(X, R);
+        float interior = smoothstep(0.5*delta, -0.5*delta, s);
+        return mix(1.0, ior_constant, interior);
+    }
+
+    vec3 IOR_grad(in vec3 X, float wavelength_nm)
+    {
+        const float dx = 2.0e-4;
+        const float inv2dx = 0.5/dx;
+        vec3 e = vec3(dx, 0.0, 0.0);
+        vec3 Xp = X+e.xyy; vec3 Xn = X-e.xyy;
+        vec3 Yp = X+e.yxy; vec3 Yn = X-e.yxy;
+        vec3 Zp = X+e.yyx; vec3 Zn = X-e.yyx;
+        float didx = IOR(Xp, wavelength_nm) - IOR(Xn, wavelength_nm);
+        float didy = IOR(Yp, wavelength_nm) - IOR(Yn, wavelength_nm);
+        float didz = IOR(Zp, wavelength_nm) - IOR(Zn, wavelength_nm);
+        return inv2dx * vec3(didx, didy, didz);
+    }
+
+    /////////////////////////////////////////////////
+    // integrator
+    /////////////////////////////////////////////////
+
+    void UPDATE(inout vec3 X, inout vec3 V, inout vec4 M, float t, float h)
+    {
+        // see: "Eikonal Rendering: Efficient Light Transport in Refractive Objects", Ihrke et. al. SIGGRAPH 07
+        // https://resources.mpi-inf.mpg.de/EikonalRendering/pdf/sig0
+
+        float wavelength_nm = M.w;
+        float     n = IOR(X, wavelength_nm);
+        vec3 grad_n = IOR_grad(X, wavelength_nm);
+
+        // time-integration of Eikonal equation
+        X += h * V/(n*n);
+        V += h * grad_n/n;
+    }
+
+    /////////////////////////////////////////////////
+    // color
+    /////////////////////////////////////////////////
+
+    const float EPSILON = 1e-10;
+
+    vec3 HUEtoRGB(in float hue)
+    {
+        // Hue [0..1] to RGB [0..1]
+        // See http://www.chilliant.com/rgb2hsv.html
+        vec3 rgb = abs(hue * 6. - vec3(3, 2, 4)) * vec3(1, -1, -1) + vec3(-1, 2, 2);
+        return clamp(rgb, 0., 1.);
+    }
+
+    vec3 HSVtoRGB(in vec3 hsv)
+    {
+        // Hue-Saturation-Value [0..1] to RGB [0..1]
+        vec3 rgb = HUEtoRGB(hsv.x);
+        return ((rgb - 1.) * hsv.y + 1.) * hsv.z;
+    }
+
+
+    vec3 rgb_spectrum_approx(float wavelength_nm)
+    {
+        float t = (wavelength_nm - 390.0) / (750.0 - 390.0);
+        vec3 r = t * 2.1 - vec3(1.8, 1.14, 0.3);
+        return 1.0 - r*r;
+    }
+
+    vec3 COLOR(in vec3 X, in vec3 V, in vec4 M,
+               float t, float age, float lifetime,
+               int particle_id, int num_particles)
+    {
+        return rgb_spectrum_approx(M.w);
+    }
+
+    `;
+}
+
+
+ParticleSystem.prototype.preframe_callback = function(party)
+{
+    let engine = party.getEngine();
+    let frame = engine.get_frame();
+    if (frame==0)
+    {
+        let dt_ms = 1000.0 * engine.get_timestep();
+        party.gif_init("test.gif", dt_ms);
+        this.gif_rendered = false;
+    }
+}
+
+ParticleSystem.prototype.postframe_callback = function(party)
+{
+    let gl = party.getGLContext();
+    let engine = party.getEngine();
+
+    let frame = engine.get_frame();
+    let dt = engine.get_timestep();
+    let time = frame*dt;
+    if (this.gif_rendered)
+        return;
+
+    let render_gif = true;
+    if (render_gif)
+    {
+        if (frame >= this.startFrame)
+        {
+            if (frame<=this.endFrame)
+            {
+                console.log('add GIF frame: ' + (frame-this.startFrame) + '/' + (this.endFrame-this.startFrame));
+                party.gif_add_frame();
+            }
+            else
+            {
+                engine.pause();
+                party.gif_render();
+                this.gif_rendered = true;
+            }
+        }
+    }
+}
+
+
+ParticleSystem.prototype.sync_shader = function(party, shader)
+{
+    let gl = party.getGLContext();
+    let engine = party.getEngine();
+
+    let start_texture_unit = party.getUserTextureUnitStart();
+    let program = shader.getProgram();
+
+    let frame = engine.get_frame();
+    let dt = engine.get_timestep();
+    let time = frame*dt;
+
+    //console.log("track_fraction: ", time/this.track_time);
+    shader.uniformF("track_fraction", time/this.track_time);
+
+    shader.uniformF("boxX", this.params.boxX);
+    shader.uniformF("boxY", this.params.boxY);
+    shader.uniformF("boxZ", this.params.boxZ);
+
+    shader.uniformF("emitterX", this.params.emitterX);
+    shader.uniformF("emitterY", this.params.emitterY);
+    shader.uniformF("emitterZ", this.params.emitterZ);
+    shader.uniformF("emitterVelocityX", this.params.emitterVelocityX);
+    shader.uniformF("emitterVelocityY", this.params.emitterVelocityY);
+    shader.uniformF("emitterVelocityZ", this.params.emitterVelocityZ);
+    shader.uniformF("emitterRadius", this.params.emitterRadius);
+
+    shader.uniformF("time_period", this.params.time_period);
+    shader.uniformF("b", this.params.b);
+    shader.uniformF("c", this.params.c);
+    shader.uniformF("ior_pert", this.params.ior_pert);
+
+    shader.uniformF("R", this.params.R);
+    shader.uniformF("H", this.params.H);
+    shader.uniformF("delta", this.params.delta);
+    shader.uniformF("base_ior", this.params.base_ior);
+    shader.uniformF("abbe", this.params.abbe);
+
+}
+
+
+ParticleSystem.prototype.init_gui = function(gui)
+{
+    gui.addSlider(this.params, {name: 'emitterX', min: -100.0, max: 100.0});
+    gui.addSlider(this.params, {name: 'emitterY', min: -100.0, max: 100.0});
+    gui.addSlider(this.params, {name: 'emitterZ', min: -100.0, max: 100.0});
+    gui.addSlider(this.params, {name: 'emitterVelocityX', min: -100.0, max: 100.0});
+    gui.addSlider(this.params, {name: 'emitterVelocityY', min: -100.0, max: 100.0});
+    gui.addSlider(this.params, {name: 'emitterVelocityZ', min: -100.0, max: 100.0});
+    gui.addSlider(this.params, {name: 'emitterRadius', min: 0.0, max: 10.0});
+
+    gui.addSlider(this.params, {name: 'time_period', min: 0.0, max: 10.0});
+    gui.addSlider(this.params, {name: 'b', min: 0.0, max: 10.0});
+    gui.addSlider(this.params, {name: 'c', min: 0.0, max: 10.0});
+    gui.addSlider(this.params, {name: 'ior_pert', min: 0.0, max: 5.0});
+
+    gui.addSlider(this.params, {name: 'R', min: 0.0, max: 10.0});
+    gui.addSlider(this.params, {name: 'H', min: 0.0, max: 10.0});
+    gui.addSlider(this.params, {name: 'delta', min: 0.0, max: 1.0});
+    gui.addSlider(this.params, {name: 'base_ior', min: 0.0, max: 3.0});
+    gui.addSlider(this.params, {name: 'abbe', min: 0.0, max: 100.0});
+}
+
+
+</script>
+
+
+<?/* ------------------------------------------------------------------*/?>
+<?/*                            main loop                              */?>
+<?/* ------------------------------------------------------------------*/?>
+
+<script type="text/javascript">
+function onLoad()
+{
+    party = new Party(new ParticleSystem()); animateLoop();
+}
+function animateLoop()
+{
+    party.step();
+    window.requestAnimationFrame(animateLoop);
+}
+</script>
+
+
+
+</body>
