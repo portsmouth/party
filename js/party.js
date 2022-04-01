@@ -318,6 +318,7 @@ Party.prototype.dumpScene = function()
     renderer.settings.exposure = ${renderer.settings.exposure};
     renderer.settings.gamma = ${renderer.settings.gamma};
     renderer.settings.saturation = ${renderer.settings.saturation};
+    renderer.settings.contrast = ${renderer.settings.contrast};
     renderer.settings.radius = ${renderer.settings.radius};
 `;
 

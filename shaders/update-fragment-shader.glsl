@@ -56,12 +56,8 @@ _USER_CODE_
             - randomly sample an emission location for this particle and reset its position to that
             - (otherwise, don't alter the particle location)
 
-    - in "continuous emission" mode, this emission process is run every timestep
-        (and if the force is time-independent, the system settles into a steady state)
-
-    - in "burst emission" mode, the emission is done only in the first lifetime,
-        thereafter the particles just advect and are never re-emitted.
-        (equivalent to infinite lifetime)
+    - this emission process is run every timestep
+      (and if the force is time-independent, the system settles into a steady state)
 
     - on each timestep, after the emission logic we:
             - advect each particle position in an arbitrary specified (force field),

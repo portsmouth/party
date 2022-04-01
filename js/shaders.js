@@ -124,6 +124,7 @@ precision highp float;
 uniform float exposure;
 uniform float invGamma;
 uniform float saturation;
+uniform float contrast;
 
 in vec3 pColor;
 out vec4 outColor;
@@ -169,6 +170,14 @@ vec3 post(in vec3 C)
     R = mean + sign(dR)*pow(abs(dR), 1.0/saturation);
     G = mean + sign(dG)*pow(abs(dG), 1.0/saturation);
     B = mean + sign(dB)*pow(abs(dB), 1.0/saturation);
+
+    // apply contrast
+    dR = R - 0.5;
+    dG = G - 0.5;
+    dB = B - 0.5;
+    R = 0.5 + sign(dR)*pow(abs(dR), 1.0/contrast);
+    G = 0.5 + sign(dG)*pow(abs(dG), 1.0/contrast);
+    B = 0.5 + sign(dB)*pow(abs(dB), 1.0/contrast);
 
     return vec3(R,G,B);
 }
@@ -238,9 +247,9 @@ void main()
     float birth_phase = P.w; // in [0,1]
 
     // Compute particle age, i.e time elapsed since birth
-    float global_phase = mod(t, lifetime)/ lifetime; // in [0,1]
+    float global_phase = mod(t, lifetime) / lifetime; // in [0,1]
     float dphase = global_phase - birth_phase;
-    if (dphase < 0.0) dphase += 1.0; // or, dp += 1.0 - step(0, dp)
+    dphase = mod(dphase, 1.0);
     float age = lifetime * dphase;
 
     // Compute particle color via user-specified function
@@ -309,12 +318,8 @@ _USER_CODE_
             - randomly sample an emission location for this particle and reset its position to that
             - (otherwise, don't alter the particle location)
 
-    - in "continuous emission" mode, this emission process is run every timestep
-        (and if the force is time-independent, the system settles into a steady state)
-
-    - in "burst emission" mode, the emission is done only in the first lifetime,
-        thereafter the particles just advect and are never re-emitted.
-        (equivalent to infinite lifetime)
+    - this emission process is run every timestep
+      (and if the force is time-independent, the system settles into a steady state)
 
     - on each timestep, after the emission logic we:
             - advect each particle position in an arbitrary specified (force field),

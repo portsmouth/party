@@ -80,6 +80,7 @@ GUI.prototype.createRendererSettings = function()
     this.rendererFolder.add(renderer.settings, 'exposure', -10.0, 10.0).onChange(     function() { party.render_dirty(); });
     this.rendererFolder.add(renderer.settings, 'gamma', 0.0, 10.0).onChange(           function() { party.render_dirty(); });
     this.rendererFolder.add(renderer.settings, 'saturation', 0.0, 3.0).onChange(      function() { party.render_dirty(); });
+    this.rendererFolder.add(renderer.settings, 'contrast', 0.0, 3.0).onChange(      function() { party.render_dirty(); });
     this.rendererFolder.add(renderer.settings, 'radius', 0.0, 100.0).onChange(     function() { party.render_dirty(); });
     this.rendererFolder.open();
 }

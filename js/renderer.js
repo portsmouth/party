@@ -9,6 +9,7 @@ var Renderer = function()
     this.settings.exposure = 0.0;
     this.settings.gamma = 2.2;
     this.settings.saturation = 1.0;
+    this.settings.contrast = 1.0;
     this.settings.radius = 1.0;
 
     // Create a quad VBO for rendering textures
@@ -118,6 +119,7 @@ Renderer.prototype.render = function()
         this.render_program.uniformF("exposure", this.settings.exposure);
         this.render_program.uniformF("invGamma", 1.0/this.settings.gamma);
         this.render_program.uniformF("saturation", this.settings.saturation);
+        this.render_program.uniformF("contrast", this.settings.contrast);
 
         // Draw the particles!
         gl.enable(gl.BLEND);

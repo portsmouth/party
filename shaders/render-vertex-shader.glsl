@@ -52,9 +52,9 @@ void main()
     float birth_phase = P.w; // in [0,1]
 
     // Compute particle age, i.e time elapsed since birth
-    float global_phase = mod(t, lifetime)/ lifetime; // in [0,1]
+    float global_phase = mod(t, lifetime) / lifetime; // in [0,1]
     float dphase = global_phase - birth_phase;
-    if (dphase < 0.0) dphase += 1.0; // or, dp += 1.0 - step(0, dp)
+    dphase = mod(dphase, 1.0);
     float age = lifetime * dphase;
 
     // Compute particle color via user-specified function
